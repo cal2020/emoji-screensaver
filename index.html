@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌌 Emoji Screensaver</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        /* CSS Container Queries - Modern Feature */
+        .screensaver-container {
+            container-type: inline-size;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* Animated gradient background using @property */
+        @property --gradient-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+        
+        .background-gradient {
+            position: fixed;
+            inset: 0;
+            background: conic-gradient(
+                from var(--gradient-angle),
+                #ff006620,
+                #8338ec20,
+                #3a86ff20,
+                #06ffa520,
+                #ffbe0b20,
+                #ff006620
+            );
+            animation: rotate-gradient 20s linear infinite;
+            z-index: 0;
+        }
+        
+        @keyframes rotate-gradient {
+            to { --gradient-angle: 360deg; }
+        }
+        
+        /* Emoji particle */
+        .emoji {
+            position: absolute;
+            font-size: clamp(1.5rem, 4vw, 4rem);
+            pointer-events: none;
+            animation: float var(--duration) ease-in-out infinite;
+            filter: drop-shadow(0 0 20px var(--glow-color));
+            z-index: 1;
+            view-timeline-name: --emoji-timeline;
+            animation-timeline: auto;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) rotate(0deg) scale(1);
+                opacity: 0.8;
+            }
+            25% {
+                transform: translateY(-30vh) rotate(90deg) scale(1.2);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-60vh) rotate(180deg) scale(0.8);
+                opacity: 0.9;
+            }
+            75% {
+                transform: translateY(-90vh) rotate(270deg) scale(1.1);
+                opacity: 0.7;
+            }
+        }
+        
+        /* Glass morphism panel */
+        .info-panel {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            translate: -50% 0;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1rem 2rem;
+            color: white;
+            text-align: center;
+            z-index: 100;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            &:hover {
+                background: rgba(255, 255, 255, 0.1);
+                scale: 1.05;
+            }
+        }
+        
+        .info-panel h1 {
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            font-weight: 700;
+            background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: gradient-shift 5s ease infinite;
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        .stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        /* Scroll-driven animation target */
+        .scroll-indicator {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            background: conic-gradient(#3a86ff var(--scroll-progress, 0%), transparent 0);
+            display: grid;
+            place-items: center;
+            z-index: 100;
+            
+            &::before {
+                content: '⏱️';
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Popover API styling */
+        [popover] {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            padding: 2rem;
+            color: white;
+            max-width: 400px;
+            
+            &::backdrop {
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(5px);
+            }
+        }
+        
+        /* View Transitions API styles */
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation-duration: 0.5s;
+        }
+        
+        /* Subgrid for complex layouts */
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+        }
+        
+        /* Color-mix for dynamic colors */
+        .dynamic-color {
+            background: color-mix(in oklch, #ff006e 50%, #3a86ff);
+        }
+        
+        /* Has selector for parent styling */
+        .screensaver-container:has(.emoji:hover) .background-gradient {
+            animation-play-state: paused;
+        }
+        
+        /* Nesting with native CSS */
+        .controls {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 100;
+            
+            button {
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 0.5rem;
+                cursor: pointer;
+                font-size: 1.5rem;
+                transition: all 0.3s ease;
+                
+                &:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                    scale: 1.1;
+                }
+                
+                &:active {
+                    scale: 0.95;
+                }
+            }
+        }
+        
+        /* Anchor positioning (progressive enhancement) */
+        @supports (anchor-name: --my-anchor) {
+            .tooltip-anchor {
+                anchor-name: --emoji-anchor;
+            }
+        }
+        
+        /* Motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+        
+        /* Light mode support */
+        @media (prefers-color-scheme: light) {
+            body {
+                background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 50%, #d0d0d0 100%);
+            }
+            .info-panel {
+                background: rgba(0, 0, 0, 0.05);
+                color: #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="screensaver-container">
+        <div class="background-gradient"></div>
+        <div id="emoji-container"></div>
+        
+        <div class="controls">
+            <button id="add-emoji" title="Add Emoji">➕</button>
+            <button id="clear-emojis" title="Clear All">🗑️</button>
+            <button id="toggle-pause" title="Pause/Play">⏸️</button>
+            <button popovertarget="settings-popover" title="Settings">⚙️</button>
+        </div>
+        
+        <div class="info-panel">
+            <h1>✨ Modern CSS Screensaver ✨</h1>
+            <div class="stats">
+                <span>Emojis: <strong id="emoji-count">0</strong></span>
+                <span>FPS: <strong id="fps">60</strong></span>
+                <span>Time: <strong id="time">00:00</strong></span>
+            </div>
+        </div>
+        
+        <div class="scroll-indicator"></div>
+        
+        <div id="settings-popover" popover>
+            <h2>⚙️ Settings</h2>
+            <p style="margin: 1rem 0;">
+                <label>Spawn Rate: <input type="range" id="spawn-rate" min="100" max="2000" value="500"></label>
+            </p>
+            <p>
+                <label>Max Emojis: <input type="range" id="max-emojis" min="10" max="200" value="50"></label>
+            </p>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Modern ES2024+ Features
+        const emojis = [
+            '🚀', '⭐', '🌟', '✨', '💫', '🌙', '☀️', '🌈', '🔥', '💎',
+            '🎨', '🎭', '🎪', '🎢', '🎡', '🎠', '🎯', '🎲', '🎮', '🕹️',
+            '🌸', '🌺', '🌻', '🌼', '🌷', '🌹', '🏵️', '💐', '🪷', '🪻',
+            '🦋', '🐝', '🐞', '🦄', '🐉', '🦚', '🦩', '🦜', '🐬', '🦈',
+            '🍎', '🍊', '🍋', '🍇', '🍓', '🍒', '🥝', '🍑', '🥭', '🍍',
+            '💜', '💙', '💚', '💛', '🧡', '❤️', '🖤', '🤍', '💖', '💝',
+            '🎵', '🎶', '🎼', '🎹', '🎸', '🎺', '🎻', '🥁', '🪘', '🎤'
+        ];
+        
+        const glowColors = [
+            '#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b',
+            '#ff5400', '#9b5de5', '#00f5d4', '#fee440', '#f72585'
+        ];
+        
+        const container = document.getElementById('emoji-container');
+        const emojiCountEl = document.getElementById('emoji-count');
+        const fpsEl = document.getElementById('fps');
+        const timeEl = document.getElementById('time');
+        const spawnRateInput = document.getElementById('spawn-rate');
+        const maxEmojisInput = document.getElementById('max-emojis');
+        
+        let isPaused = false;
+        let spawnRate = 500;
+        let maxEmojis = 50;
+        let startTime = Date.now();
+        
+        // Using structuredClone for deep cloning (modern feature)
+        const config = structuredClone({
+            minDuration: 8,
+            maxDuration: 20,
+            minSize: 1.5,
+            maxSize: 4
+        });
+        
+        // Create emoji element using modern DOM APIs
+        function createEmoji() {
+            if (container.children.length >= maxEmojis || isPaused) return;
+            
+            const emoji = document.createElement('div');
+            emoji.className = 'emoji';
+            emoji.textContent = emojis.at(Math.floor(Math.random() * emojis.length)); // .at() method
+            
+            const duration = config.minDuration + Math.random() * (config.maxDuration - config.minDuration);
+            const glowColor = glowColors.at(Math.floor(Math.random() * glowColors.length));
+            
+            // Using CSS custom properties
+            emoji.style.setProperty('--duration', `${duration}s`);
+            emoji.style.setProperty('--glow-color', glowColor);
+            emoji.style.left = `${Math.random() * 100}vw`;
+            emoji.style.bottom = '-5rem';
+            emoji.style.animationDelay = `${Math.random() * -duration}s`;
+            
+            container.appendChild(emoji);
+            emojiCountEl.textContent = container.children.length;
+            
+            // Remove after animation using AbortController pattern
+            const controller = new AbortController();
+            emoji.addEventListener('animationiteration', () => {
+                if (Math.random() > 0.7) {
+                    emoji.remove();
+                    emojiCountEl.textContent = container.children.length;
+                }
+            }, { signal: controller.signal });
+        }
+        
+        // Spawn emojis using requestIdleCallback for performance
+        function scheduleSpawn() {
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => {
+                    createEmoji();
+                    setTimeout(scheduleSpawn, spawnRate);
+                }, { timeout: 1000 });
+            } else {
+                createEmoji();
+                setTimeout(scheduleSpawn, spawnRate);
+            }
+        }
+        
+        // FPS Counter using performance.now()
+        let frameCount = 0;
+        let lastTime = performance.now();
+        
+        function updateFPS() {
+            frameCount++;
+            const now = performance.now();
+            if (now - lastTime >= 1000) {
+                fpsEl.textContent = frameCount;
+                frameCount = 0;
+                lastTime = now;
+            }
+            requestAnimationFrame(updateFPS);
+        }
+        
+        // Time display using Intl.DateTimeFormat
+        function updateTime() {
+            const elapsed = Date.now() - startTime;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            timeEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            requestAnimationFrame(updateTime);
+        }
+        
+        // Event Listeners with modern options
+        document.getElementById('add-emoji').addEventListener('click', () => {
+            for (let i = 0; i < 10; i++) createEmoji();
+        }, { passive: true });
+        
+        document.getElementById('clear-emojis').addEventListener('click', () => {
+            // Using View Transitions API
+            if (document.startViewTransition) {
+                document.startViewTransition(() => {
+                    container.innerHTML = '';
+                    emojiCountEl.textContent = '0';
+                });
+            } else {
+                container.innerHTML = '';
+                emojiCountEl.textContent = '0';
+            }
+        }, { passive: true });
+        
+        document.getElementById('toggle-pause').addEventListener('click', (e) => {
+            isPaused = !isPaused;
+            e.target.textContent = isPaused ? '▶️' : '⏸️';
+            container.style.animationPlayState = isPaused ? 'paused' : 'running';
+            document.querySelectorAll('.emoji').forEach(el => {
+                el.style.animationPlayState = isPaused ? 'paused' : 'running';
+            });
+        }, { passive: true });
+        
+        // Settings using input event
+        spawnRateInput?.addEventListener('input', (e) => {
+            spawnRate = Number(e.target.value);
+        });
+        
+        maxEmojisInput?.addEventListener('input', (e) => {
+            maxEmojis = Number(e.target.value);
+        });
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                document.getElementById('toggle-pause').click();
+            } else if (e.key === 'Escape') {
+                container.innerHTML = '';
+                emojiCountEl.textContent = '0';
+            }
+        });
+        
+        // Initialize using top-level await (ES2022+)
+        await new Promise(resolve => {
+            if (document.readyState === 'complete') resolve();
+            else window.addEventListener('load', resolve);
+        });
+        
+        // Start the screensaver
+        scheduleSpawn();
+        updateFPS();
+        updateTime();
+        
+        // Initial burst of emojis
+        for (let i = 0; i < 20; i++) {
+            setTimeout(createEmoji, i * 100);
+        }
+        
+        console.log('🌌 Screensaver initialized with modern web features:');
+        console.log('• CSS @property for animated gradients');
+        console.log('• CSS Nesting');
+        console.log('• Container Queries');
+        console.log('• Popover API');
+        console.log('• View Transitions API');
+        console.log('• requestIdleCallback');
+        console.log('• ES2024+ features');
+    </script>
+</body>
+</html>
