@@ -266,6 +266,7 @@
             <button id="toggle-pause" title="Pause/Play">⏸️</button>
             <button id="theme-toggle" title="Change Theme">🎨</button>
             <button popovertarget="settings-popover" title="Settings">⚙️</button>
+            <button id="audio-toggle" title="Audio Visualizer">🎵</button>
         </div>
         
         <div class="info-panel">
@@ -452,6 +453,83 @@
         maxEmojisInput?.addEventListener('input', (e) => {
             maxEmojis = Number(e.target.value);
         });
+        
+        // Audio Visualizer
+        let audioContext, analyser, dataArray, audioSource;
+        let isAudioActive = false;
+        
+        async function startAudioVisualizer() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 64;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioSource = audioContext.createMediaStreamSource(stream);
+                audioSource.connect(analyser);
+                
+                isAudioActive = true;
+                document.getElementById('audio-toggle').textContent = '🔊';
+                visualizeAudio();
+            } catch (err) {
+                alert('Microphone access needed for audio visualizer');
+            }
+        }
+        
+        function stopAudioVisualizer() {
+            isAudioActive = false;
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            document.getElementById('audio-toggle').textContent = '🎵';
+        }
+        
+        function visualizeAudio() {
+            if (!isAudioActive) return;
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Get average volume
+            const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+            const bass = dataArray.slice(0, 4).reduce((a, b) => a + b, 0) / 4;
+            const mid = dataArray.slice(4, 12).reduce((a, b) => a + b, 0) / 8;
+            const high = dataArray.slice(12).reduce((a, b) => a + b, 0) / (dataArray.length - 12);
+            
+            // Pulse emojis based on audio
+            document.querySelectorAll('.emoji').forEach((emoji, i) => {
+                const freq = dataArray[i % dataArray.length] / 255;
+                const scale = 1 + freq * 0.5;
+                emoji.style.transform = `scale(${scale})`;
+                emoji.style.filter = `drop-shadow(0 0 ${20 + freq * 30}px ${emoji.style.getPropertyValue('--glow-color')})`;
+            });
+            
+            // Spawn particles on beats
+            if (bass > 150) {
+                for (let i = 0; i < 5; i++) {
+                    createParticle(
+                        Math.random() * window.innerWidth,
+                        window.innerHeight,
+                        glowColors[Math.floor(Math.random() * glowColors.length)]
+                    );
+                }
+            }
+            
+            // Background pulse
+            const brightness = 1 + (avg / 255) * 0.2;
+            document.querySelector('.background-gradient').style.opacity = 0.5 + (avg / 255) * 0.5;
+            
+            requestAnimationFrame(visualizeAudio);
+        }
+        
+        document.getElementById('audio-toggle')?.addEventListener('click', () => {
+            if (isAudioActive) {
+                stopAudioVisualizer();
+            } else {
+                startAudioVisualizer();
+            }
+        }, { passive: true });
         
         // Theme toggle
         document.getElementById('theme-toggle')?.addEventListener('click', () => {
