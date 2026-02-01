@@ -96,6 +96,50 @@
         }
         
         /* Glass morphism panel */
+        .game-hud {
+            position: fixed;
+            top: 1rem;
+            left: 50%;
+            translate: -50% 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-size: 1.25rem;
+            font-weight: bold;
+            z-index: 200;
+            display: none;
+            gap: 2rem;
+        }
+        
+        .game-hud.active { display: flex; }
+        
+        .game-hud span { display: flex; align-items: center; gap: 0.5rem; }
+        
+        .score-pop {
+            position: absolute;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ffbe0b;
+            text-shadow: 0 0 10px #ffbe0b;
+            pointer-events: none;
+            z-index: 150;
+        }
+        
+        .combo-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            translate: -50% -50%;
+            font-size: 4rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 30px currentColor;
+            pointer-events: none;
+            z-index: 200;
+        }
+        
         .info-panel {
             position: fixed;
             bottom: 2rem;
@@ -269,6 +313,13 @@
             <button id="audio-toggle" title="Audio Visualizer">🎵</button>
             <button id="trail-toggle" title="Mouse Trail">✨</button>
             <button id="physics-toggle" title="Physics Mode">🌍</button>
+            <button id="game-toggle" title="Game Mode">🎮</button>
+        </div>
+        
+        <div class="game-hud" id="game-hud">
+            <span>🎯 Score: <strong id="game-score">0</strong></span>
+            <span>🔥 Combo: <strong id="game-combo">x1</strong></span>
+            <span>⏱️ <strong id="game-timer">30</strong>s</span>
         </div>
         
         <div class="info-panel">
@@ -455,6 +506,154 @@
         maxEmojisInput?.addEventListener('input', (e) => {
             maxEmojis = Number(e.target.value);
         });
+        
+        // Game Mode
+        let isGameActive = false;
+        let gameScore = 0;
+        let gameCombo = 1;
+        let gameTimer = 30;
+        let gameInterval = null;
+        let lastPopTime = 0;
+        const COMBO_TIMEOUT = 1000;
+        
+        const pointValues = {
+            '⭐': 10, '🌟': 10, '✨': 15, '💫': 15,
+            '💎': 25, '👑': 30, '🌈': 20,
+            '💖': 5, '💜': 5, '💙': 5,
+            'default': 10
+        };
+        
+        function startGame() {
+            isGameActive = true;
+            gameScore = 0;
+            gameCombo = 1;
+            gameTimer = 30;
+            
+            document.getElementById('game-hud').classList.add('active');
+            document.getElementById('game-toggle').textContent = '⏹️';
+            document.querySelector('.info-panel').style.display = 'none';
+            updateGameHUD();
+            
+            // Spawn lots of emojis
+            for (let i = 0; i < 30; i++) {
+                setTimeout(createEmoji, i * 100);
+            }
+            
+            gameInterval = setInterval(() => {
+                gameTimer--;
+                updateGameHUD();
+                
+                // Spawn more emojis during game
+                if (Math.random() > 0.5) createEmoji();
+                
+                if (gameTimer <= 0) endGame();
+            }, 1000);
+        }
+        
+        function endGame() {
+            isGameActive = false;
+            clearInterval(gameInterval);
+            
+            document.getElementById('game-toggle').textContent = '🎮';
+            document.querySelector('.info-panel').style.display = '';
+            
+            // Show final score
+            showComboText(`Game Over!\n🎯 ${gameScore} points`);
+            
+            setTimeout(() => {
+                document.getElementById('game-hud').classList.remove('active');
+            }, 3000);
+        }
+        
+        function updateGameHUD() {
+            document.getElementById('game-score').textContent = gameScore;
+            document.getElementById('game-combo').textContent = `x${gameCombo}`;
+            document.getElementById('game-timer').textContent = gameTimer;
+        }
+        
+        function showScorePop(x, y, points) {
+            const pop = document.createElement('div');
+            pop.className = 'score-pop';
+            pop.textContent = `+${points}`;
+            pop.style.left = x + 'px';
+            pop.style.top = y + 'px';
+            document.body.appendChild(pop);
+            
+            pop.animate([
+                { opacity: 1, transform: 'translateY(0) scale(1)' },
+                { opacity: 0, transform: 'translateY(-50px) scale(1.5)' }
+            ], { duration: 600, easing: 'ease-out' }).onfinish = () => pop.remove();
+        }
+        
+        function showComboText(text) {
+            const el = document.createElement('div');
+            el.className = 'combo-text';
+            el.textContent = text;
+            el.style.color = glowColors[Math.floor(Math.random() * glowColors.length)];
+            document.body.appendChild(el);
+            
+            el.animate([
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(0.5)' },
+                { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(1.5)' }
+            ], { duration: 1000, easing: 'ease-out' }).onfinish = () => el.remove();
+        }
+        
+        function popEmojiForGame(emoji, x, y) {
+            const char = emoji.textContent;
+            const basePoints = pointValues[char] || pointValues.default;
+            const points = basePoints * gameCombo;
+            
+            // Update combo
+            const now = Date.now();
+            if (now - lastPopTime < COMBO_TIMEOUT) {
+                gameCombo = Math.min(gameCombo + 1, 10);
+                if (gameCombo >= 3) showComboText(`🔥 ${gameCombo}x COMBO!`);
+            } else {
+                gameCombo = 1;
+            }
+            lastPopTime = now;
+            
+            gameScore += points;
+            updateGameHUD();
+            showScorePop(x, y, points);
+            
+            // Burst effect
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const color = glowColors[Math.floor(Math.random() * glowColors.length)];
+                p.style.cssText = `left:${x}px;top:${y}px;width:10px;height:10px;background:${color};box-shadow:0 0 15px ${color};`;
+                container.appendChild(p);
+                
+                const dist = 60 + Math.random() * 40;
+                p.animate([
+                    { transform: 'scale(1)', opacity: 1 },
+                    { transform: `translate(${Math.cos(angle)*dist}px,${Math.sin(angle)*dist}px) scale(0)`, opacity: 0 }
+                ], { duration: 400, easing: 'ease-out', fill: 'forwards' }).onfinish = () => p.remove();
+            }
+            
+            emoji.remove();
+            emojiCountEl.textContent = container.querySelectorAll('.emoji').length;
+        }
+        
+        // Override click handler for game mode
+        container.addEventListener('click', (e) => {
+            if (!isGameActive) return;
+            
+            const emoji = e.target.closest('.emoji');
+            if (emoji) {
+                e.stopPropagation();
+                const rect = emoji.getBoundingClientRect();
+                popEmojiForGame(emoji, rect.left + rect.width/2, rect.top + rect.height/2);
+            }
+        }, { capture: true });
+        
+        document.getElementById('game-toggle')?.addEventListener('click', () => {
+            if (isGameActive) endGame();
+            else startGame();
+        }, { passive: true });
         
         // Physics Mode
         let isPhysicsActive = false;
