@@ -55,6 +55,14 @@
             to { --gradient-angle: 360deg; }
         }
         
+        /* Particle trails */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
         /* Emoji particle */
         .emoji {
             position: absolute;
@@ -437,7 +445,63 @@
             else window.addEventListener('load', resolve);
         });
         
+        // Particle trail system
+        const particles = [];
+        const MAX_PARTICLES = 150;
+        
+        function createParticle(x, y, color) {
+            if (particles.length >= MAX_PARTICLES) {
+                const old = particles.shift();
+                old.remove();
+            }
+            
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.cssText = `
+                left: ${x}px;
+                top: ${y}px;
+                width: ${4 + Math.random() * 8}px;
+                height: ${4 + Math.random() * 8}px;
+                background: ${color};
+                box-shadow: 0 0 ${10 + Math.random() * 10}px ${color};
+            `;
+            
+            container.appendChild(particle);
+            particles.push(particle);
+            
+            particle.animate([
+                { opacity: 0.8, transform: 'scale(1) translateY(0)' },
+                { opacity: 0, transform: 'scale(0) translateY(20px)' }
+            ], {
+                duration: 800 + Math.random() * 400,
+                easing: 'ease-out',
+                fill: 'forwards'
+            }).onfinish = () => {
+                particle.remove();
+                const idx = particles.indexOf(particle);
+                if (idx > -1) particles.splice(idx, 1);
+            };
+        }
+        
+        function updateParticles() {
+            if (!isPaused) {
+                document.querySelectorAll('.emoji').forEach(emoji => {
+                    if (Math.random() > 0.85) {
+                        const rect = emoji.getBoundingClientRect();
+                        const color = emoji.style.getPropertyValue('--glow-color') || glowColors.at(Math.floor(Math.random() * glowColors.length));
+                        createParticle(
+                            rect.left + rect.width / 2 + (Math.random() - 0.5) * 30,
+                            rect.top + rect.height / 2 + (Math.random() - 0.5) * 30,
+                            color
+                        );
+                    }
+                });
+            }
+            requestAnimationFrame(updateParticles);
+        }
+        
         // Start the screensaver
+        updateParticles();
         scheduleSpawn();
         updateFPS();
         updateTime();
