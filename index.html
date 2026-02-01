@@ -15,7 +15,7 @@
         
         body {
             overflow: hidden;
-            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            background: var(--bg-gradient, linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%));
             min-height: 100vh;
             font-family: 'Inter', system-ui, sans-serif;
         }
@@ -67,7 +67,8 @@
         .emoji {
             position: absolute;
             font-size: clamp(1.5rem, 4vw, 4rem);
-            pointer-events: none;
+            pointer-events: auto;
+            cursor: pointer;
             animation: float var(--duration) ease-in-out infinite;
             filter: drop-shadow(0 0 20px var(--glow-color));
             z-index: 1;
@@ -263,6 +264,7 @@
             <button id="add-emoji" title="Add Emoji">➕</button>
             <button id="clear-emojis" title="Clear All">🗑️</button>
             <button id="toggle-pause" title="Pause/Play">⏸️</button>
+            <button id="theme-toggle" title="Change Theme">🎨</button>
             <button popovertarget="settings-popover" title="Settings">⚙️</button>
         </div>
         
@@ -300,10 +302,32 @@
             '🎵', '🎶', '🎼', '🎹', '🎸', '🎺', '🎻', '🥁', '🪘', '🎤'
         ];
         
-        const glowColors = [
-            '#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b',
-            '#ff5400', '#9b5de5', '#00f5d4', '#fee440', '#f72585'
-        ];
+        const themes = {
+            neon: {
+                bg: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%)',
+                colors: ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b', '#ff5400', '#9b5de5', '#00f5d4', '#fee440', '#f72585']
+            },
+            sunset: {
+                bg: 'linear-gradient(135deg, #1a1a2e 0%, #4a1942 50%, #801336 100%)',
+                colors: ['#ff6b6b', '#feca57', '#ff9ff3', '#f368e0', '#ff9f43', '#ee5a24', '#ffeaa7', '#fd79a8', '#e17055', '#d63031']
+            },
+            ocean: {
+                bg: 'linear-gradient(135deg, #0a1628 0%, #1e3a5f 50%, #0d4f6e 100%)',
+                colors: ['#00d2d3', '#54a0ff', '#5f27cd', '#01a3a4', '#2e86de', '#0abde3', '#48dbfb', '#00cec9', '#74b9ff', '#81ecec']
+            },
+            forest: {
+                bg: 'linear-gradient(135deg, #0a1f0a 0%, #1a3a1a 50%, #2d4a2d 100%)',
+                colors: ['#00b894', '#55a630', '#80b918', '#aacc00', '#bfd200', '#2d6a4f', '#40916c', '#52b788', '#74c69d', '#95d5b2']
+            },
+            candy: {
+                bg: 'linear-gradient(135deg, #2d1b4e 0%, #4a2c6a 50%, #6b3d8a 100%)',
+                colors: ['#ff6f91', '#ff9671', '#ffc75f', '#f9f871', '#d65db1', '#845ec2', '#ff61a6', '#ffc312', '#c44569', '#f8b500']
+            }
+        };
+        
+        const themeNames = Object.keys(themes);
+        let currentThemeIdx = 0;
+        let glowColors = themes.neon.colors;
         
         const container = document.getElementById('emoji-container');
         const emojiCountEl = document.getElementById('emoji-count');
@@ -427,6 +451,66 @@
         
         maxEmojisInput?.addEventListener('input', (e) => {
             maxEmojis = Number(e.target.value);
+        });
+        
+        // Theme toggle
+        document.getElementById('theme-toggle')?.addEventListener('click', () => {
+            currentThemeIdx = (currentThemeIdx + 1) % themeNames.length;
+            const themeName = themeNames[currentThemeIdx];
+            const theme = themes[themeName];
+            
+            document.body.style.setProperty('--bg-gradient', theme.bg);
+            glowColors = theme.colors;
+            
+            // Flash effect
+            document.body.animate([
+                { filter: 'brightness(1.5)' },
+                { filter: 'brightness(1)' }
+            ], { duration: 300 });
+        }, { passive: true });
+        
+        // Click emoji to explode
+        container.addEventListener('click', (e) => {
+            const emoji = e.target.closest('.emoji');
+            if (!emoji) return;
+            
+            const rect = emoji.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            const color = emoji.style.getPropertyValue('--glow-color') || glowColors[0];
+            
+            // Burst particles
+            for (let i = 0; i < 20; i++) {
+                const angle = (i / 20) * Math.PI * 2;
+                const velocity = 50 + Math.random() * 100;
+                const px = x + Math.cos(angle) * velocity;
+                const py = y + Math.sin(angle) * velocity;
+                
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.cssText = `
+                    left: ${x}px; top: ${y}px;
+                    width: 12px; height: 12px;
+                    background: ${color};
+                    box-shadow: 0 0 20px ${color};
+                `;
+                container.appendChild(p);
+                
+                p.animate([
+                    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                    { transform: `translate(${px - x}px, ${py - y}px) scale(0)`, opacity: 0 }
+                ], { duration: 600, easing: 'ease-out', fill: 'forwards' })
+                .onfinish = () => p.remove();
+            }
+            
+            // Remove emoji with scale animation
+            emoji.animate([
+                { transform: 'scale(1.5)', opacity: 1 },
+                { transform: 'scale(0)', opacity: 0 }
+            ], { duration: 200 }).onfinish = () => {
+                emoji.remove();
+                emojiCountEl.textContent = container.querySelectorAll('.emoji').length;
+            };
         });
         
         // Keyboard controls
