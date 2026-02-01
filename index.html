@@ -268,6 +268,7 @@
             <button popovertarget="settings-popover" title="Settings">⚙️</button>
             <button id="audio-toggle" title="Audio Visualizer">🎵</button>
             <button id="trail-toggle" title="Mouse Trail">✨</button>
+            <button id="physics-toggle" title="Physics Mode">🌍</button>
         </div>
         
         <div class="info-panel">
@@ -453,6 +454,124 @@
         
         maxEmojisInput?.addEventListener('input', (e) => {
             maxEmojis = Number(e.target.value);
+        });
+        
+        // Physics Mode
+        let isPhysicsActive = false;
+        const physicsEmojis = [];
+        const GRAVITY = 0.3;
+        const BOUNCE = 0.7;
+        const FRICTION = 0.99;
+        
+        class PhysicsEmoji {
+            constructor(el) {
+                this.el = el;
+                this.x = parseFloat(el.style.left) || Math.random() * window.innerWidth;
+                this.y = parseFloat(el.style.top) || Math.random() * window.innerHeight * 0.5;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 5;
+                this.size = el.getBoundingClientRect().width || 40;
+            }
+            
+            update() {
+                this.vy += GRAVITY;
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Bounce off walls
+                if (this.x < 0) { this.x = 0; this.vx *= -BOUNCE; }
+                if (this.x > window.innerWidth - this.size) { this.x = window.innerWidth - this.size; this.vx *= -BOUNCE; }
+                
+                // Bounce off floor
+                if (this.y > window.innerHeight - this.size - 100) {
+                    this.y = window.innerHeight - this.size - 100;
+                    this.vy *= -BOUNCE;
+                    if (Math.abs(this.vy) < 1) this.vy = 0;
+                }
+                
+                // Bounce off ceiling
+                if (this.y < 0) { this.y = 0; this.vy *= -BOUNCE; }
+                
+                this.el.style.left = this.x + 'px';
+                this.el.style.top = this.y + 'px';
+                this.el.style.transform = `rotate(${this.vx * 5}deg)`;
+            }
+            
+            applyForce(fx, fy) {
+                this.vx += fx;
+                this.vy += fy;
+            }
+        }
+        
+        function physicsLoop() {
+            if (!isPhysicsActive) return;
+            physicsEmojis.forEach(p => p.update());
+            requestAnimationFrame(physicsLoop);
+        }
+        
+        function enablePhysics() {
+            isPhysicsActive = true;
+            document.getElementById('physics-toggle').textContent = '🌊';
+            
+            // Convert existing emojis to physics objects
+            document.querySelectorAll('.emoji').forEach(el => {
+                el.style.animation = 'none';
+                el.style.position = 'absolute';
+                const rect = el.getBoundingClientRect();
+                el.style.left = rect.left + 'px';
+                el.style.top = rect.top + 'px';
+                physicsEmojis.push(new PhysicsEmoji(el));
+            });
+            
+            physicsLoop();
+        }
+        
+        function disablePhysics() {
+            isPhysicsActive = false;
+            document.getElementById('physics-toggle').textContent = '🌍';
+            physicsEmojis.length = 0;
+            
+            // Restore animations
+            document.querySelectorAll('.emoji').forEach(el => {
+                el.style.animation = '';
+                el.style.transform = '';
+            });
+        }
+        
+        document.getElementById('physics-toggle')?.addEventListener('click', () => {
+            if (isPhysicsActive) disablePhysics();
+            else enablePhysics();
+        }, { passive: true });
+        
+        // Click to launch emojis in physics mode
+        container.addEventListener('mousedown', (e) => {
+            if (!isPhysicsActive) return;
+            physicsEmojis.forEach(p => {
+                const dx = p.x - e.clientX;
+                const dy = p.y - e.clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 300) {
+                    const force = (300 - dist) / 30;
+                    p.applyForce(dx / dist * force, dy / dist * force - 5);
+                }
+            });
+        });
+        
+        // Shake device support
+        let lastShake = 0;
+        window.addEventListener('devicemotion', (e) => {
+            if (!isPhysicsActive) return;
+            const acc = e.accelerationIncludingGravity;
+            if (acc && Date.now() - lastShake > 100) {
+                const shake = Math.abs(acc.x) + Math.abs(acc.y);
+                if (shake > 15) {
+                    physicsEmojis.forEach(p => p.applyForce((Math.random() - 0.5) * 20, -Math.random() * 15));
+                    lastShake = Date.now();
+                }
+            }
         });
         
         // Mouse Trail
